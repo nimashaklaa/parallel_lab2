@@ -6,18 +6,29 @@ public class BusSimulation {
 
     private static final double MEAN_BUS_ARRIVAL = 12.0;  // mean arrival time in seconds
     private static final double MEAN_RIDER_ARRIVAL = 3.0;  // mean arrival time in seconds
+    private static final int MAX_RIDERS = 100;
 
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
+    private static int riderCount = 0;
 
     public static void main(String[] args) throws InterruptedException {
         BusStop busStop = new BusStop(); // Create a shared bus stop object
 
         // Start bus and rider threads
         // Schedule bus arrivals
-        scheduleEvent(() -> new Thread(new Bus(busStop)).start(), MEAN_BUS_ARRIVAL);
+        scheduleBusEvent(() -> new Thread(new Bus(busStop)).start());
 
         // Schedule rider arrivals
-        scheduleEvent(() -> new Thread(new Rider(busStop)).start(), MEAN_RIDER_ARRIVAL);
+        scheduleRiderEvent(() -> {
+            if (riderCount < MAX_RIDERS) {
+                new Thread(new Rider(busStop)).start();
+                riderCount++;
+                System.out.println("Rider " + riderCount + " created.");
+            } else {
+                scheduler.shutdown();  // Stop creating riders after 100
+                System.out.println("Reached max rider limit of " + MAX_RIDERS + ". No more riders.");
+            }
+        });
 
         // Create and start the bus thread
 //        Thread busThread = new Thread(new Bus(busStop));
@@ -31,8 +42,13 @@ public class BusSimulation {
 //
 //        busThread.join(); // Wait for the bus thread to finish
     }
-    private static void scheduleEvent(Runnable task, double meanTime) {
-        long delay = (long) getExponentialTime(meanTime);
+    private static void scheduleBusEvent(Runnable task) {
+        long delay = (long) getExponentialTime(BusSimulation.MEAN_BUS_ARRIVAL);
+        scheduler.scheduleWithFixedDelay(task, 0, delay, TimeUnit.SECONDS);
+    }
+
+    private static void scheduleRiderEvent(Runnable task) {
+        long delay = (long) getExponentialTime(BusSimulation.MEAN_RIDER_ARRIVAL);
         scheduler.scheduleWithFixedDelay(task, 0, delay, TimeUnit.SECONDS);
     }
 

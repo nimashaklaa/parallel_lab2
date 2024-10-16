@@ -16,7 +16,7 @@ public class BusStop {
         lock.lock();
         try {
             waitingRiders++; // Increment the number of waiting riders
-            System.out.println("Rider arrives. Riders waiting: " + waitingRiders);
+            System.out.println("Rider arrives" + waitingRiders);
             if (waitingRiders <= BUS_CAPACITY) {
                 // If there's space on the bus, allow a rider to board
                 ridersSemaphore.release();
@@ -65,8 +65,19 @@ public class BusStop {
 
             ridersBoarded = 0; // Reset the count for this bus ride
 
+            // Allow up to 50 riders to board or all waiting riders if fewer than 50
+            int ridersToBoard = Math.min(BUS_CAPACITY, waitingRiders);
+
+            for (int i = 0; i < ridersToBoard; i++) {
+                ridersSemaphore.release(); // Allow riders to board up to the bus capacity
+            }
+
             // Wait until all riders have boarded the bus
             allRidersBoarded.await();
+
+//            for (int i = 0; i < ridersToBoard; i++) {
+//                boardBus(); // Ensure that each rider boards
+//            }
 
             // Depart after all riders have boarded
             depart();
