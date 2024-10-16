@@ -57,3 +57,5 @@ public class BusSimulation {
         return -Math.log(1 - Math.random()) / lambda;
     }
 }
+
+//TODO: here there is an issue of calling board bus before bus arrives need to fix it
