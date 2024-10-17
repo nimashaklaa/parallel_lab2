@@ -10,81 +10,84 @@ public class BusStop {
     private Semaphore ridersSemaphore = new Semaphore(0); // Controls when riders can board
     private Lock lock = new ReentrantLock(); // Lock for managing access to shared resources
     private Condition allRidersBoarded = lock.newCondition(); // Condition to signal when all riders have boarded
+    private Semaphore busSemaphore = new Semaphore(0);  // Bus will signal riders to board
+    private Semaphore mutex = new Semaphore(1);  // Protect shared resources (waitingRiders count)
+    private Semaphore allAboard = new Semaphore(0);  // Bus waits for riders to finish boarding
+    private int ridersToBoard = 0;  // Riders boarding the current bus
+    private boolean isBoarding = false; // Flag to indicate if the bus is currently boarding
 
-    // Method called when a rider arrives at the bus stop
+    // Called when a rider arrives at the bus stop
     public void riderArrives() throws InterruptedException {
-        lock.lock();
-        try {
-            waitingRiders++; // Increment the number of waiting riders
-            System.out.println("Rider arrives" + waitingRiders);
-            if (waitingRiders <= BUS_CAPACITY) {
-                // If there's space on the bus, allow a rider to board
-                ridersSemaphore.release();
-            }
-        } finally {
-            lock.unlock();
-        }
+        mutex.acquire();  // Enter critical section to update rider count
+        waitingRiders++;
+        System.out.println("Rider arrived. Waiting riders: " + waitingRiders);
+        mutex.release();  // Exit critical section
 
-        // Rider waits for the signal to board the bus
-        ridersSemaphore.acquire();
-    }
-
-    // Method called when a rider boards the bus
-    public void boardBus() throws InterruptedException {
-        lock.lock();
-        try {
-            ridersBoarded++; // Increment the count of riders who have boarded
-            waitingRiders--; // Decrease the number of waiting riders
-            System.out.println("Rider boards. Riders boarded: " + ridersBoarded);
-
-            // If all waiting riders (up to the capacity) have boarded, signal the bus to depart
-//            if (ridersBoarded == Math.min(BUS_CAPACITY, ridersBoarded + waitingRiders)) {
-//                System.out.println("All riders have boarded. Signaling bus to depart.");
-//                allRidersBoarded.signal(); // Signal that all riders have boarded
-//            }
-            if (ridersBoarded == BUS_CAPACITY || waitingRiders == 0) {
-                System.out.println("All riders have boarded. Signaling bus to depart.");
-                allRidersBoarded.signal(); // Signal that all riders have boarded
-            }
-        } finally {
-            lock.unlock();
+        busSemaphore.acquire();  // Wait for the bus to arrive and signal boarding
+        if (isBoarding) {
+            boardBus();  // Board the bus when allowed
+        } else {
+            // If bus is not boarding, decrement waitingRiders
+//            mutex.acquire();
+//            waitingRiders--; // Remove the rider from waiting count if they miss this bus
+            System.out.println("Rider missed the bus and will wait for the next one.");
+//            mutex.release();
         }
     }
 
-    // Method called when the bus arrives at the stop
+    // Called when a rider is allowed to board the bus
+    private void boardBus() throws InterruptedException {
+        System.out.println("Rider boarding the bus.");
+        mutex.acquire();
+//        ridersToBoard--;  // Decrease the count of riders boarding
+        ridersBoarded++;
+        waitingRiders--;  // Update waitingRiders as soon as the rider boards
+        System.out.println("Rider boarding the bus.");
+        System.out.println("Remaining riders to board: " + (BUS_CAPACITY - ridersBoarded) + ", waitingRiders: " + waitingRiders);
+//        if (ridersBoarded == 0) {
+//            allAboard.release();  // Signal the bus that all riders have boarded
+//        }
+        if (ridersBoarded == BUS_CAPACITY) {
+            allAboard.release();  // Signal the bus that all riders have boarded
+        }
+        mutex.release();
+    }
+
+    // Called when a bus arrives at the bus stop
     public void busArrives() throws InterruptedException {
-        lock.lock();
-        try {
-            System.out.println("Bus arrives at the stop.");
-            if (waitingRiders == 0) {
-                // If no riders are waiting, the bus departs immediately
-                System.out.println("No riders waiting.");
-                depart();
-                return;
-            }
-
-            ridersBoarded = 0; // Reset the count for this bus ride
-
-            // Allow up to 50 riders to board or all waiting riders if fewer than 50
-            int ridersToBoard = Math.min(BUS_CAPACITY, waitingRiders);
-
-            for (int i = 0; i < ridersToBoard; i++) {
-                ridersSemaphore.release(); // Allow riders to board up to the bus capacity
-            }
-
-            // Wait until all riders have boarded the bus
-            allRidersBoarded.await();
-
-//            for (int i = 0; i < ridersToBoard; i++) {
-//                boardBus(); // Ensure that each rider boards
-//            }
-
-            // Depart after all riders have boarded
-            depart();
-        } finally {
-            lock.unlock();
+        mutex.acquire();  // Enter critical section to check the number of waiting riders
+        if (waitingRiders == 0) {
+            System.out.println("Bus arrived. No riders waiting, departing immediately.");
+            mutex.release();  // Exit critical section
+            return;
         }
+
+        // Allow riders to board, but not more than the bus capacity
+        ridersToBoard = Math.min(waitingRiders, BUS_CAPACITY);
+//        ridersBoarded = ridersToBoard;  // Store how many riders are actually boarding
+        System.out.println("Bus arrived. Boarding " + ridersToBoard+ " riders.");
+
+        isBoarding = true;
+        // Release permits for riders to board
+        for (int i = 0; i < ridersBoarded; i++) {
+            busSemaphore.release();  // Allow each rider to board
+        }
+        mutex.release();  // Exit critical section
+
+        allAboard.acquire();  // Wait until all riders finish boarding
+
+        depart();
+
+        // Reset boarding state
+        isBoarding = false;
+
+        mutex.acquire();
+        waitingRiders -= ridersBoarded;  // Update the remaining riders at the bus stop
+        ridersToBoard = 0;  // Reset riders to board for the next bus
+        ridersBoarded = 0;  // Reset for the next bus
+        mutex.release();
     }
+
 
     // Method to simulate the bus departure
     public void depart() {

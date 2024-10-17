@@ -14,7 +14,6 @@ public class Rider implements Runnable {
         try {
             System.out.println("Rider thread started.");
             busStop.riderArrives(); // The rider arrives at the bus stop
-            busStop.boardBus(); // The rider boards the bus
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Handle interruption
         }
