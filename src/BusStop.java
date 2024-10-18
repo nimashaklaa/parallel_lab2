@@ -50,6 +50,6 @@ public class BusStop {
 
     // Method to simulate the bus departure
     public void depart(int ridersBoarded) {
-        System.out.println("Bus departs with " + ridersBoarded + " riders.");
+        System.out.println("Bus departs with " + ridersBoarded + " riders. Riders remaining: " + waitingRiders);
     }
 }
