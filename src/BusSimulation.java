@@ -17,8 +17,7 @@ public class BusSimulation {
 
     public static void main(String[] args) throws InterruptedException {
         BusStop busStop = new BusStop(); // Create a shared bus stop object
-//
-        // Start bus and rider threads
+
         // Schedule bus arrivals
         scheduleBusEvent(() -> new Thread(new Bus(busStop)).start());
 
@@ -48,7 +47,7 @@ public class BusSimulation {
 //        double lambda = 1.0 / mean;
 //        return -Math.log(1 - Math.random()) / lambda;
         Random rand = new Random();
-        return -Math.log(1 - rand.nextDouble()) * mean;
+        return (long) (-Math.log(1 - rand.nextDouble()) * mean);
     }
 }
 
